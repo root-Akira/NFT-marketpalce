@@ -11,4 +11,5 @@ export interface MarketItem extends NFTItem {
   itemId: number;
   seller: string;
   price: string;
+  sold: boolean;
 }

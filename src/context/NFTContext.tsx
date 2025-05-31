@@ -142,7 +142,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
           toast.loading('Approving marketplace... Please wait', { id: 'approve' });
           
           const approveTx = await nftContract.approve(MARKETPLACE_CONTRACT_ADDRESS, tokenId, {
-            gasLimit: 100000 // Explicit gas limit
+            gasLimit: 100000 // Moderate gas limit for approval
           });
           await approveTx.wait();
           toast.success('Marketplace approved!', { id: 'approve' });
@@ -152,12 +152,18 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
           toast.loading('Listing NFT... Please wait', { id: 'list' });
           
           const marketplaceContract = getSignedMarketplaceContract();
-          const listTx = await marketplaceContract.createMarketItem(
+          
+          // Get the listing price
+          const listingPrice = await marketplaceContract.getListingPrice();
+          console.log('Listing fee:', ethers.utils.formatEther(listingPrice), 'ETH');
+          
+          const listTx = await marketplaceContract.createMarketplaceItem(
             NFT_CONTRACT_ADDRESS,
             tokenId,
             priceInWei,
             {
-              gasLimit: 250000 // Explicit gas limit
+              value: listingPrice, // Send the listing fee with the transaction
+              gasLimit: 250000 // Higher gas limit for listing
             }
           );
           
@@ -190,54 +196,64 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
       const nftContract = getNFTContract();
       
       console.log('Fetching market items...');
-      const data = await marketplaceContract.fetchMarketItems({ gasLimit: 500000 });
-      console.log('Raw market items:', data);
       
-      if (!data || !Array.isArray(data)) {
-        console.error('Invalid data returned from fetchMarketItems');
+      // Get all market items
+      const data = await marketplaceContract.fetchMarketplaceItems({ gasLimit: 500000 });
+      console.log('Raw market items:', data, 'Length:', data.length);
+      
+      if (data.length === 0) {
+        console.log('No items returned from marketplace contract');
         setNfts([]);
         return;
       }
-      
-      const processedItems = await Promise.all(
+
+      // Process each item
+      const items: MarketItem[] = await Promise.all(
         data.map(async (item: any) => {
           try {
             const tokenId = item.tokenId.toNumber();
-            console.log('Fetching metadata for token:', tokenId);
-            
+            console.log('Processing market item:', {
+              tokenId,
+              itemId: item.itemId.toNumber(),
+              seller: item.seller,
+              sold: item.sold
+            });
+
             let tokenUri;
             try {
               tokenUri = await nftContract.tokenURI(tokenId, { gasLimit: 100000 });
+              console.log('Token URI for', tokenId, ':', tokenUri);
+
+              let meta;
+              try {
+                const response = await fetch(tokenUri);
+                if (!response.ok) throw new Error('Failed to fetch metadata');
+                meta = await response.json();
+                console.log('Metadata for', tokenId, ':', meta);
+              } catch (error) {
+                console.error('Error fetching metadata for token', tokenId, ':', error);
+                meta = {
+                  name: `NFT #${tokenId}`,
+                  description: 'Metadata unavailable',
+                  image: 'https://via.placeholder.com/400x400?text=NFT'
+                };
+              }
+              
+              return {
+                itemId: item.itemId.toNumber(),
+                tokenId: tokenId,
+                seller: item.seller,
+                owner: item.owner,
+                price: ethers.utils.formatEther(item.price),
+                image: meta.image,
+                name: meta.name,
+                description: meta.description,
+                sold: item.sold
+              };
             } catch (error) {
-              console.error('Error fetching token URI:', error);
+              console.error('Error fetching token URI for token', tokenId, ':', error);
               return null;
             }
-            
-            let meta;
-            try {
-              const response = await fetch(tokenUri);
-              if (!response.ok) throw new Error('Failed to fetch metadata');
-              meta = await response.json();
-            } catch (error) {
-              console.error('Error fetching metadata:', error);
-              meta = {
-                name: `NFT #${tokenId}`,
-                description: 'Metadata unavailable',
-                image: 'https://via.placeholder.com/400x400?text=NFT'
-              };
-            }
-            
-            const marketItem: MarketItem = {
-              itemId: item.itemId.toNumber(),
-              tokenId: tokenId,
-              seller: item.seller,
-              owner: item.owner,
-              price: ethers.utils.formatEther(item.price),
-              image: meta.image,
-              name: meta.name,
-              description: meta.description,
-            };
-            return marketItem;
           } catch (error) {
             console.error('Error processing market item:', error);
             return null;
@@ -245,9 +261,30 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
         })
       );
       
-      // Filter out null items (failed to process)
-      const validItems = processedItems.filter((item): item is MarketItem => item !== null);
-      console.log('Processed market items:', validItems);
+      // Filter out null items, sold items, and invalid listings
+      const validItems = items
+        .filter((item): item is MarketItem => {
+          if (!item) {
+            console.log('Filtering out null item');
+            return false;
+          }
+          if (item.sold) {
+            console.log('Filtering out sold item:', item.tokenId);
+            return false;
+          }
+          if (item.seller === ethers.constants.AddressZero) {
+            console.log('Filtering out unlisted item:', item.tokenId);
+            return false;
+          }
+          if (account && item.seller.toLowerCase() === account.toLowerCase()) {
+            console.log('Filtering out own listing:', item.tokenId);
+            return false;
+          }
+          return true;
+        })
+        .sort((a, b) => b.itemId - a.itemId); // Sort by newest first
+      
+      console.log('Final processed items:', validItems.length, 'from total:', items.length);
       setNfts(validItems);
       
     } catch (error: any) {
@@ -273,64 +310,83 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
       const nftContract = getNFTContract();
       const marketplaceContract = getMarketplaceContract();
       
-      // Get token count for the current user
-      console.log('Getting balance...');
-      const balance = await nftContract.balanceOf(account, { gasLimit: 100000 });
-      const tokenCount = balance.toNumber();
-      console.log('NFT balance:', tokenCount);
+      // Get all Transfer events to this address
+      const filter = nftContract.filters.Transfer(null, account);
+      const events = await nftContract.queryFilter(filter);
+      console.log('Transfer events to account:', events);
       
+      // Get all market items to check listing status
+      const marketItems = await marketplaceContract.fetchMarketplaceItems({ gasLimit: 500000 });
+      const listedTokenIds = new Set(
+        marketItems
+          .filter((item: any) => !item.sold) // Only consider unsold items as listed
+          .map((item: any) => item.tokenId.toNumber())
+      );
+      console.log('Listed token IDs:', Array.from(listedTokenIds));
+      
+      const processedTokens = new Set();
       const items: NFTItem[] = [];
       
-      for (let i = 0; i < tokenCount; i++) {
+      for (const event of events) {
         try {
-          console.log(`Fetching token ${i + 1} of ${tokenCount}`);
-          // Get token ID with gas limit
-          const tokenId = await nftContract.tokenOfOwnerByIndex(account, i, { 
-            gasLimit: 100000 
-          });
-          console.log('Token ID:', tokenId.toString());
+          const tokenId = event.args?.tokenId.toNumber();
           
-          // Get token URI with gas limit
-          const tokenUri = await nftContract.tokenURI(tokenId, { 
-            gasLimit: 100000 
-          });
-          console.log('Token URI:', tokenUri);
+          // Skip if we've already processed this token
+          if (processedTokens.has(tokenId)) continue;
           
-          let meta;
-          try {
-            const response = await fetch(tokenUri);
-            if (!response.ok) throw new Error('Failed to fetch metadata');
-            meta = await response.json();
-          } catch (error) {
-            console.error('Error fetching metadata:', error);
-            meta = {
-              name: `NFT #${tokenId}`,
-              description: 'Metadata unavailable',
-              image: 'https://via.placeholder.com/400x400?text=NFT'
-            };
+          console.log('Checking token:', tokenId);
+          
+          // Skip if token is listed in marketplace
+          if (listedTokenIds.has(tokenId)) {
+            console.log('Skipping listed token:', tokenId);
+            continue;
           }
-          
-          // Check if token is listed in marketplace
-          let isListed = false;
+
+          // Verify current owner
           try {
-            const marketItem = await marketplaceContract.fetchMarketItemByTokenId(tokenId, {
-              gasLimit: 100000
-            });
-            isListed = marketItem && marketItem.seller !== ethers.constants.AddressZero;
+            const currentOwner = await nftContract.ownerOf(tokenId, { gasLimit: 100000 });
+            if (currentOwner.toLowerCase() !== account.toLowerCase()) {
+              console.log('Token no longer owned by user:', tokenId);
+              continue;
+            }
+            
+            processedTokens.add(tokenId);
+            
+            let tokenUri;
+            try {
+              tokenUri = await nftContract.tokenURI(tokenId, { gasLimit: 100000 });
+              console.log('Token URI:', tokenUri);
+              
+              let meta;
+              try {
+                const response = await fetch(tokenUri);
+                if (!response.ok) throw new Error('Failed to fetch metadata');
+                meta = await response.json();
+              } catch (error) {
+                console.error('Error fetching metadata:', error);
+                meta = {
+                  name: `NFT #${tokenId}`,
+                  description: 'Metadata unavailable',
+                  image: 'https://via.placeholder.com/400x400?text=NFT'
+                };
+              }
+              
+              items.push({
+                tokenId: tokenId,
+                owner: account,
+                image: meta.image,
+                name: meta.name,
+                description: meta.description,
+                isListed: listedTokenIds.has(tokenId)
+              });
+            } catch (error) {
+              console.error('Error fetching token URI:', error);
+            }
           } catch (error) {
-            console.error('Error checking listing status:', error);
+            console.error('Error checking token owner:', error);
           }
-          
-          items.push({
-            tokenId: tokenId.toNumber(),
-            owner: account,
-            image: meta.image,
-            name: meta.name,
-            description: meta.description,
-            isListed
-          });
         } catch (error) {
-          console.error(`Error processing token at index ${i}:`, error);
+          console.error('Error processing event:', error);
           continue;
         }
       }
@@ -368,63 +424,76 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
       const nftContract = getNFTContract();
       
       console.log('Fetching created items...');
-      const data = await marketplaceContract.fetchItemsCreated({ gasLimit: 500000 });
-      console.log('Raw listed items:', data);
+      const items = await marketplaceContract.fetchItemsCreated({ gasLimit: 500000 });
+      console.log('Raw listed items:', items);
       
-      const items: MarketItem[] = await Promise.all(
-        data.map(async (item: any) => {
-          try {
-            const tokenId = item.tokenId.toNumber();
-            console.log('Processing token:', tokenId);
-            
-            let tokenUri;
+      const processedItems: MarketItem[] = await Promise.all(
+        items
+          .filter((item: any) => item.seller.toLowerCase() === account.toLowerCase()) // Only show user's listings
+          .map(async (item: any) => {
             try {
-              tokenUri = await nftContract.tokenURI(tokenId, { gasLimit: 100000 });
+              const tokenId = item.tokenId.toNumber();
+              console.log('Processing listed item:', tokenId);
+              
+              let tokenUri;
+              try {
+                tokenUri = await nftContract.tokenURI(tokenId, { gasLimit: 100000 });
+                console.log('Token URI:', tokenUri);
+                
+                let meta;
+                try {
+                  const response = await fetch(tokenUri);
+                  if (!response.ok) throw new Error('Failed to fetch metadata');
+                  meta = await response.json();
+                } catch (error) {
+                  console.error('Error fetching metadata:', error);
+                  meta = {
+                    name: `NFT #${tokenId}`,
+                    description: 'Metadata unavailable',
+                    image: 'https://via.placeholder.com/400x400?text=NFT'
+                  };
+                }
+                
+                return {
+                  itemId: item.itemId.toNumber(),
+                  tokenId: tokenId,
+                  seller: item.seller,
+                  owner: item.owner,
+                  price: ethers.utils.formatEther(item.price),
+                  image: meta.image,
+                  name: meta.name,
+                  description: meta.description,
+                  sold: item.sold
+                };
+              } catch (error) {
+                console.error('Error fetching token URI:', error);
+                return null;
+              }
             } catch (error) {
-              console.error('Error fetching token URI:', error);
-              throw error;
+              console.error('Error processing listed item:', error);
+              return null;
             }
-            
-            let meta;
-            try {
-              const response = await fetch(tokenUri);
-              if (!response.ok) throw new Error('Failed to fetch metadata');
-              meta = await response.json();
-            } catch (error) {
-              console.error('Error fetching metadata:', error);
-              meta = {
-                name: `NFT #${tokenId}`,
-                description: 'Metadata unavailable',
-                image: 'https://via.placeholder.com/400x400?text=NFT'
-              };
-            }
-            
-            return {
-              itemId: item.itemId.toNumber(),
-              tokenId: tokenId,
-              seller: item.seller,
-              owner: item.owner,
-              price: ethers.utils.formatEther(item.price),
-              image: meta.image,
-              name: meta.name,
-              description: meta.description
-            };
-          } catch (error) {
-            console.error('Error processing listed item:', error);
-            return null;
-          }
-        })
+          })
       );
       
-      // Filter out null items
-      const validItems = items.filter((item): item is MarketItem => item !== null);
+      // Filter out null items and sort by sold status
+      const validItems = processedItems
+        .filter((item): item is MarketItem => item !== null)
+        .sort((a, b) => {
+          // Sort by sold status (unsold first) and then by itemId (newer first)
+          if (a.sold === b.sold) {
+            return b.itemId - a.itemId;
+          }
+          return a.sold ? 1 : -1;
+        });
       console.log('Processed listed items:', validItems);
       setMyListedNfts(validItems);
       
-      if (validItems.length > 0) {
-        toast.success(`Found ${validItems.length} listed NFTs`);
+      const activeListings = validItems.filter(item => !item.sold);
+      if (activeListings.length > 0) {
+        toast.success(`Found ${activeListings.length} active listings`);
       } else {
-        toast('No listed NFTs found');
+        toast('No active listings found');
       }
       
     } catch (error: any) {
@@ -448,10 +517,13 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
       const marketplaceContract = getSignedMarketplaceContract();
       
       const price = ethers.utils.parseUnits(nft.price, 'ether');
-      const tx = await marketplaceContract.createMarketSale(
+      const tx = await marketplaceContract.createMarketplaceSale(
         NFT_CONTRACT_ADDRESS,
         nft.itemId,
-        { value: price }
+        { 
+          value: price,
+          gasLimit: 500000 // Higher gas limit for purchase transaction
+        }
       );
       
       await tx.wait();
@@ -484,15 +556,25 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
       const marketplaceContract = getSignedMarketplaceContract();
       
       // Approve marketplace to transfer NFT
-      const approveTx = await nftContract.approve(MARKETPLACE_CONTRACT_ADDRESS, tokenId);
+      const approveTx = await nftContract.approve(MARKETPLACE_CONTRACT_ADDRESS, tokenId, {
+        gasLimit: 100000 // Moderate gas limit for approval
+      });
       await approveTx.wait();
       
+      // Get the listing price
+      const listingPrice = await marketplaceContract.getListingPrice();
+      console.log('Listing fee:', ethers.utils.formatEther(listingPrice), 'ETH');
+
       // List NFT
       const priceInWei = ethers.utils.parseUnits(price, 'ether');
-      const tx = await marketplaceContract.createMarketItem(
+      const tx = await marketplaceContract.createMarketplaceItem(
         NFT_CONTRACT_ADDRESS,
         tokenId,
-        priceInWei
+        priceInWei,
+        {
+          value: listingPrice, // Send the listing fee with the transaction
+          gasLimit: 250000 // Higher gas limit for listing
+        }
       );
       
       await tx.wait();
@@ -523,7 +605,13 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
       setIsLoading(true);
       const marketplaceContract = getSignedMarketplaceContract();
       
-      const tx = await marketplaceContract.cancelMarketItem(NFT_CONTRACT_ADDRESS, itemId);
+      const tx = await marketplaceContract.cancelMarketItem(
+        NFT_CONTRACT_ADDRESS, 
+        itemId,
+        {
+          gasLimit: 200000 // Moderate gas limit for cancellation
+        }
+      );
       await tx.wait();
       
       toast.success('Listing cancelled successfully!');

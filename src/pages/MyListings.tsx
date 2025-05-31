@@ -71,7 +71,11 @@ const MyListings: React.FC = () => {
                   }}
                 />
                 <div className="absolute top-2 right-2 glass px-2 py-1 rounded-full text-xs font-medium">
-                  Listed for {nft.price} ETH
+                  {nft.sold ? (
+                    <span className="text-red-400">Sold</span>
+                  ) : (
+                    <span>Listed for {nft.price} ETH</span>
+                  )}
                 </div>
               </div>
               
@@ -79,12 +83,14 @@ const MyListings: React.FC = () => {
                 <h3 className="text-lg font-semibold mb-1">{nft.name}</h3>
                 <p className="text-gray-400 text-sm line-clamp-2 h-10 mb-2">{nft.description}</p>
                 
-                <button
-                  className="btn btn-secondary w-full mt-4 flex items-center justify-center"
-                  onClick={() => cancelListing(nft.itemId)}
-                >
-                  <XCircle className="w-4 h-4 mr-2" /> Cancel Listing
-                </button>
+                {!nft.sold && (
+                  <button
+                    className="btn btn-secondary w-full mt-4 flex items-center justify-center"
+                    onClick={() => cancelListing(nft.itemId)}
+                  >
+                    <XCircle className="w-4 h-4 mr-2" /> Cancel Listing
+                  </button>
+                )}
               </div>
             </div>
           ))}
