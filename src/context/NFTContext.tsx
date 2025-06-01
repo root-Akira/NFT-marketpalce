@@ -131,7 +131,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
         return false;
       }
 
-      // List NFT on marketplace if price is provided
+      // List NFT on marketplace only if price is provided
       if (price) {
         try {
           const priceInWei = ethers.utils.parseUnits(price, 'ether');
@@ -170,12 +170,19 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
           await listTx.wait();
           toast.success('NFT listed successfully!', { id: 'list' });
           console.log('Market item created successfully');
+
+          // Refresh NFTs after listing
+          await fetchNFTs();
+          await fetchMyListedNFTs();
         } catch (listingError: any) {
           console.error('Error listing NFT:', listingError);
           toast.error('Failed to list NFT: ' + (listingError.message || 'Unknown error'));
-          // NFT is minted but listing failed
+          // Even if listing fails, NFT is still minted
           return true;
         }
+      } else {
+        // If not listing, just refresh my NFTs
+        await fetchMyNFTs();
       }
 
       return true;
@@ -279,8 +286,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
           if (!item) return false;
           if (item.sold) return false;
           if (item.seller === ethers.constants.AddressZero) return false;
-          if (account && item.seller.toLowerCase() === account.toLowerCase()) return false;
-          return true;
+          return true; // Show all valid items, including user's own listings
         })
         .sort((a, b) => b.itemId - a.itemId);
 
@@ -429,13 +435,34 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
       const marketplaceContract = getMarketplaceContract();
       const nftContract = getNFTContract();
       
+      // Log the contract addresses
+      console.log('Marketplace contract:', MARKETPLACE_CONTRACT_ADDRESS);
+      console.log('NFT contract:', NFT_CONTRACT_ADDRESS);
+      
       console.log('Fetching created items...');
       const items = await marketplaceContract.fetchItemsCreated({ gasLimit: 500000 });
-      console.log('Raw listed items:', items);
+      console.log('Raw listed items:', JSON.stringify(items, null, 2));
       
+      if (!items || items.length === 0) {
+        console.log('No items found for the user');
+        setMyListedNfts([]);
+        setIsLoading(false);
+        return;
+      }
+
       const processedItems: MarketItem[] = await Promise.all(
         items
-          .filter((item: any) => item.seller.toLowerCase() === account.toLowerCase()) // Only show user's listings
+          .filter((item: any) => {
+            const isSeller = item.seller.toLowerCase() === account.toLowerCase();
+            console.log('Checking item:', {
+              itemId: item.itemId.toNumber(),
+              tokenId: item.tokenId.toNumber(),
+              seller: item.seller,
+              isSeller,
+              currentAccount: account
+            });
+            return isSeller;
+          })
           .map(async (item: any) => {
             try {
               const tokenId = item.tokenId.toNumber();
@@ -451,6 +478,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
                   const response = await fetch(tokenUri);
                   if (!response.ok) throw new Error('Failed to fetch metadata');
                   meta = await response.json();
+                  console.log('Metadata for token', tokenId, ':', meta);
                 } catch (error) {
                   console.error('Error fetching metadata:', error);
                   meta = {
@@ -460,7 +488,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
                   };
                 }
                 
-                return {
+                const processedItem = {
                   itemId: item.itemId.toNumber(),
                   tokenId: tokenId,
                   seller: item.seller,
@@ -471,6 +499,8 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
                   description: meta.description,
                   sold: item.sold
                 };
+                console.log('Processed item:', processedItem);
+                return processedItem;
               } catch (error) {
                 console.error('Error fetching token URI:', error);
                 return null;
@@ -492,7 +522,8 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
           }
           return a.sold ? 1 : -1;
         });
-      console.log('Processed listed items:', validItems);
+
+      console.log('Final processed listed items:', validItems);
       setMyListedNfts(validItems);
       
       const activeListings = validItems.filter(item => !item.sold);

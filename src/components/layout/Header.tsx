@@ -32,7 +32,6 @@ const Header: React.FC = () => {
     { name: 'Explore', path: '/' },
     { name: 'Create', path: '/create' },
     { name: 'My NFTs', path: '/my-nfts' },
-    { name: 'My Listings', path: '/my-listings' },
   ];
 
   const shortenAddress = (address: string) => {

@@ -13,6 +13,7 @@ const Create: React.FC = () => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
+  const [wantToList, setWantToList] = useState(true); // New state for listing checkbox
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   
@@ -45,20 +46,27 @@ const Create: React.FC = () => {
       return;
     }
     
-    if (!name || !description || !price || !file) {
-      toast.error('Please fill in all fields');
+    if (!name || !description || !file) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (wantToList && !price) {
+      toast.error('Please enter a price for listing');
       return;
     }
     
-    if (isNaN(Number(price)) || Number(price) <= 0) {
-      toast.error('Please enter a valid price');
-      return;
-    }
-    
-    const success = await createNFT(name, description, price, file);
-    
-    if (success) {
-      navigate('/my-nfts');
+    try {
+      // Pass price only if user wants to list
+      const success = await createNFT(name, description, wantToList ? price : '', file);
+      
+      if (success) {
+        toast.success('NFT created successfully!');
+        navigate('/my-nfts');
+      }
+    } catch (error) {
+      console.error('Error creating NFT:', error);
+      toast.error('Failed to create NFT');
     }
   };
 
@@ -124,23 +132,37 @@ const Create: React.FC = () => {
                   required
                 ></textarea>
               </div>
-              
+
               <div className="mb-6">
-                <label htmlFor="price" className="block text-sm font-medium mb-2">
-                  Price (ETH) *
+                <label className="flex items-center space-x-2 mb-4">
+                  <input
+                    type="checkbox"
+                    checked={wantToList}
+                    onChange={(e) => setWantToList(e.target.checked)}
+                    className="checkbox"
+                  />
+                  <span>List this NFT for sale</span>
                 </label>
-                <input
-                  type="number"
-                  id="price"
-                  step="0.001"
-                  min="0"
-                  className="input"
-                  placeholder="Item price in ETH"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  required
-                />
               </div>
+              
+              {wantToList && (
+                <div className="mb-6">
+                  <label htmlFor="price" className="block text-sm font-medium mb-2">
+                    Price (ETH) *
+                  </label>
+                  <input
+                    type="number"
+                    id="price"
+                    step="0.001"
+                    min="0"
+                    className="input"
+                    placeholder="Item price in ETH"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
             </div>
             
             <div className="order-1 md:order-2">

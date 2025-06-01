@@ -4,6 +4,7 @@ import { useWeb3 } from '../context/Web3Context';
 import NFTCard from '../components/NFTCard';
 import Hero from '../components/Hero';
 import { Search, Loader } from 'lucide-react';
+import { MarketItem } from '../types';
 
 const Home: React.FC = () => {
   const { nfts, isLoading, buyNFT } = useNFT();
@@ -23,6 +24,10 @@ const Home: React.FC = () => {
       setFilteredNfts(nfts);
     }
   }, [searchTerm, nfts]);
+
+  const handleBuyNFT = async (nft: MarketItem) => {
+    await buyNFT(nft);
+  };
 
   return (
     <div>
@@ -66,11 +71,13 @@ const Home: React.FC = () => {
                 <NFTCard
                   key={nft.itemId}
                   nft={nft}
+                  showUnlist={true}
                   actionButton={
                     account && nft.seller.toLowerCase() !== account.toLowerCase() ? (
                       <button
                         className="btn btn-primary w-full"
-                        onClick={() => buyNFT(nft)}
+                        onClick={() => handleBuyNFT(nft)}
+                        disabled={isLoading}
                       >
                         Buy for {nft.price} ETH
                       </button>

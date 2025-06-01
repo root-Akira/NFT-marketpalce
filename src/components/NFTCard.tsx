@@ -1,14 +1,27 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { MarketItem } from '../types';
-import { User, TagIcon } from 'lucide-react';
+import { User, TagIcon, XCircle } from 'lucide-react';
+import { useWeb3 } from '../context/Web3Context';
+import { useNFT } from '../context/NFTContext';
 
 interface NFTCardProps {
   nft: MarketItem;
   actionButton?: React.ReactNode;
+  showUnlist?: boolean;
 }
 
-const NFTCard: React.FC<NFTCardProps> = ({ nft, actionButton }) => {
+const NFTCard: React.FC<NFTCardProps> = ({ nft, actionButton, showUnlist = false }) => {
+  const { account } = useWeb3();
+  const { cancelListing, isLoading } = useNFT();
+  const isOwner = account && nft.seller.toLowerCase() === account.toLowerCase();
+
+  const handleUnlist = async () => {
+    if (window.confirm('Are you sure you want to unlist this NFT?')) {
+      await cancelListing(nft.itemId);
+    }
+  };
+
   return (
     <div className="card group">
       <div className="relative overflow-hidden">
@@ -22,6 +35,11 @@ const NFTCard: React.FC<NFTCardProps> = ({ nft, actionButton }) => {
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-dark-400 to-transparent opacity-0 group-hover:opacity-70 transition-opacity duration-300"></div>
+          {isOwner && (
+            <div className="absolute top-2 right-2 bg-primary-400 text-white px-2 py-1 rounded-full text-xs">
+              Your Listing
+            </div>
+          )}
         </Link>
       </div>
       
@@ -47,12 +65,21 @@ const NFTCard: React.FC<NFTCardProps> = ({ nft, actionButton }) => {
             <span className="font-medium text-white">{nft.price} ETH</span>
           </div>
         </div>
-        
-        {actionButton && (
-          <div className="mt-4">
-            {actionButton}
-          </div>
-        )}
+
+        {/* Action Buttons */}
+        <div className="mt-4 space-y-2">
+          {showUnlist && isOwner && (
+            <button
+              onClick={handleUnlist}
+              disabled={isLoading}
+              className="btn btn-secondary w-full flex items-center justify-center"
+            >
+              <XCircle className="w-4 h-4 mr-2" />
+              Unlist NFT
+            </button>
+          )}
+          {actionButton}
+        </div>
       </div>
     </div>
   );
