@@ -7,4 +7,19 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  define: {
+    global: 'globalThis',
+  },
+  resolve: {
+    alias: {
+      process: 'process/browser',
+      stream: 'stream-browserify',
+      util: 'util',
+    },
+  },
+  build: {
+    rollupOptions: {
+      external: ['fsevents'],
+    },
+  },
 });

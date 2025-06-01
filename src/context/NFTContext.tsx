@@ -191,19 +191,41 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
   // Fetch all market items
   const fetchNFTs = async () => {
     try {
+      if (!provider) {
+        console.error('No provider available');
+        toast.error('Please connect your wallet first');
+        return;
+      }
+
       setIsLoading(true);
       const marketplaceContract = getMarketplaceContract();
       const nftContract = getNFTContract();
       
+      console.log('Connected to marketplace contract:', MARKETPLACE_CONTRACT_ADDRESS);
+      console.log('Connected to NFT contract:', NFT_CONTRACT_ADDRESS);
+      
+      // Get all market items with explicit gas limit and error handling
       console.log('Fetching market items...');
-      
-      // Get all market items
-      const data = await marketplaceContract.fetchMarketplaceItems({ gasLimit: 500000 });
-      console.log('Raw market items:', data, 'Length:', data.length);
-      
-      if (data.length === 0) {
-        console.log('No items returned from marketplace contract');
+      let data;
+      try {
+        data = await marketplaceContract.fetchMarketplaceItems({ gasLimit: 500000 });
+        console.log('Raw market items:', data, 'Length:', data?.length || 0);
+      } catch (error: any) {
+        console.error('Error fetching marketplace items:', error);
+        if (error.message.includes('execution reverted')) {
+          toast.error('Contract execution failed. Please check your network connection and try again.');
+        } else {
+          toast.error('Failed to fetch marketplace items: ' + (error.message || 'Unknown error'));
+        }
         setNfts([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        console.log('No items available in the marketplace');
+        setNfts([]);
+        setIsLoading(false);
         return;
       }
 
@@ -221,24 +243,14 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
 
             let tokenUri;
             try {
-              tokenUri = await nftContract.tokenURI(tokenId, { gasLimit: 100000 });
+              tokenUri = await nftContract.tokenURI(tokenId);
               console.log('Token URI for', tokenId, ':', tokenUri);
-
-              let meta;
-              try {
-                const response = await fetch(tokenUri);
-                if (!response.ok) throw new Error('Failed to fetch metadata');
-                meta = await response.json();
-                console.log('Metadata for', tokenId, ':', meta);
-              } catch (error) {
-                console.error('Error fetching metadata for token', tokenId, ':', error);
-                meta = {
-                  name: `NFT #${tokenId}`,
-                  description: 'Metadata unavailable',
-                  image: 'https://via.placeholder.com/400x400?text=NFT'
-                };
-              }
               
+              const response = await fetch(tokenUri);
+              if (!response.ok) throw new Error('Failed to fetch metadata');
+              const meta = await response.json();
+              console.log('Metadata for', tokenId, ':', meta);
+
               return {
                 itemId: item.itemId.toNumber(),
                 tokenId: tokenId,
@@ -251,7 +263,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
                 sold: item.sold
               };
             } catch (error) {
-              console.error('Error fetching token URI for token', tokenId, ':', error);
+              console.error('Error fetching token data:', error);
               return null;
             }
           } catch (error) {
@@ -260,42 +272,36 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
           }
         })
       );
-      
-      // Filter out null items, sold items, and invalid listings
+
+      // Filter out null items and sort
       const validItems = items
         .filter((item): item is MarketItem => {
-          if (!item) {
-            console.log('Filtering out null item');
-            return false;
-          }
-          if (item.sold) {
-            console.log('Filtering out sold item:', item.tokenId);
-            return false;
-          }
-          if (item.seller === ethers.constants.AddressZero) {
-            console.log('Filtering out unlisted item:', item.tokenId);
-            return false;
-          }
-          if (account && item.seller.toLowerCase() === account.toLowerCase()) {
-            console.log('Filtering out own listing:', item.tokenId);
-            return false;
-          }
+          if (!item) return false;
+          if (item.sold) return false;
+          if (item.seller === ethers.constants.AddressZero) return false;
+          if (account && item.seller.toLowerCase() === account.toLowerCase()) return false;
           return true;
         })
-        .sort((a, b) => b.itemId - a.itemId); // Sort by newest first
-      
-      console.log('Final processed items:', validItems.length, 'from total:', items.length);
+        .sort((a, b) => b.itemId - a.itemId);
+
+      console.log('Final processed items:', validItems.length);
       setNfts(validItems);
       
+      if (validItems.length > 0) {
+        toast.success(`Found ${validItems.length} items in the marketplace`);
+      } else {
+        toast('No items available in the marketplace');
+      }
+
     } catch (error: any) {
       console.error('Error fetching NFTs:', error);
-      toast.error('Failed to load marketplace items');
+      toast.error('Failed to load marketplace items: ' + (error.message || 'Unknown error'));
       setNfts([]);
     } finally {
       setIsLoading(false);
     }
   };
-
+  
   // Fetch NFTs owned by the user
   const fetchMyNFTs = async () => {
     if (!account) {

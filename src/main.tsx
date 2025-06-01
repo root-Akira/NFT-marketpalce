@@ -1,3 +1,12 @@
+import { Buffer } from 'buffer';
+
+// Polyfill Buffer and process
+if (typeof window !== 'undefined') {
+  (window as any).global = window;
+  (window as any).Buffer = Buffer;
+  (window as any).process = { env: {} };
+}
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
