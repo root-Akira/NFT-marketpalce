@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useWeb3 } from '../../context/Web3Context';
-import { Wallet, Menu, X, YoutubeIcon as CubeIcon } from 'lucide-react';
+import { Wallet, Menu, X, Vault } from 'lucide-react';
 
 const Header: React.FC = () => {
   const { account, balance, connectWallet, disconnectWallet, isConnecting } = useWeb3();
@@ -41,12 +41,12 @@ const Header: React.FC = () => {
   return (
     <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-dark-300 shadow-md' : 'bg-transparent'}`}>
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center">
-            <CubeIcon className="w-8 h-8 text-primary-500" />
+        <div className="flex items-center justify-between h-16">          {/* Logo */}          <Link to="/" className="flex items-center">
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#4C1D95]">
+              <Vault className="w-5 h-5 text-white" />
+            </div>
             <span className="ml-2 text-xl font-bold bg-gradient-to-r from-primary-400 to-secondary-400 text-transparent bg-clip-text">
-              NFT Market
+              MetaVault
             </span>
           </Link>
 

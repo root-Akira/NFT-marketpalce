@@ -19,10 +19,8 @@ const Hero: React.FC = () => {
               </span>
               <br />
               Extraordinary NFTs
-            </h1>
-            
-            <p className="text-lg text-gray-300 mb-8 max-w-lg">
-              The world's first and largest digital marketplace for crypto collectibles and non-fungible tokens (NFTs).
+            </h1>            <p className="text-lg text-gray-300 mb-8 max-w-xl">
+              Where imagination becomes immortal. A creator-first marketplace for visionary digital artists transforming the unreal into valued legacies.
             </p>
             
             <div className="flex flex-wrap gap-4">
