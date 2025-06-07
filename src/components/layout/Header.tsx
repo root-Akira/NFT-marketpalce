@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useWeb3 } from '../../context/Web3Context';
-import { Wallet, Menu, X, Vault } from 'lucide-react';
+import { useUser } from '../../context/UserContext';
+import { Wallet, Menu, X, Vault, User, TrendingUp } from 'lucide-react';
 
 const Header: React.FC = () => {
   const { account, balance, connectWallet, disconnectWallet, isConnecting } = useWeb3();
+  const { userProfile } = useUser();
   const [isOpen, setIsOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
 
@@ -26,9 +29,7 @@ const Header: React.FC = () => {
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
-
-  const navLinks = [
+  }, []);  const navLinks = [
     { name: 'Explore', path: '/' },
     { name: 'Create', path: '/create' },
     { name: 'My NFTs', path: '/my-nfts' },
@@ -44,9 +45,8 @@ const Header: React.FC = () => {
         <div className="flex items-center justify-between h-16">          {/* Logo */}          <Link to="/" className="flex items-center">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#4C1D95]">
               <Vault className="w-5 h-5 text-white" />
-            </div>
-            <span className="ml-2 text-xl font-bold bg-gradient-to-r from-primary-400 to-secondary-400 text-transparent bg-clip-text">
-              MetaVault
+            </div>            <span className="ml-2 text-xl font-bold bg-gradient-to-r from-primary-400 to-secondary-400 text-transparent bg-clip-text">
+              BlackMarket
             </span>
           </Link>
 
@@ -65,26 +65,53 @@ const Header: React.FC = () => {
                 {link.name}
               </Link>
             ))}
-          </nav>
-
-          {/* Connect Wallet Button */}
-          <div className="hidden md:block">
-            {account ? (
-              <div className="flex items-center">
-                <div className="glass rounded-lg px-3 py-1 mr-3">
+          </nav>          {/* Connect Wallet Button */}
+          <div className="hidden md:block">            {account ? (
+              <div className="flex items-center gap-3">
+                {/* Balance */}
+                <div className="glass rounded-lg px-3 py-1">
                   <span className="text-sm font-medium">{balance.substring(0, 6)} ETH</span>
                 </div>
+
+                {/* User Profile Menu */}
                 <div className="relative group">
-                  <button className="btn btn-primary flex items-center">
-                    <Wallet className="w-4 h-4 mr-2" />
-                    {shortenAddress(account)}
+                  <button 
+                    className="btn btn-primary flex items-center"
+                    onMouseEnter={() => setShowUserMenu(true)}
+                    onMouseLeave={() => setShowUserMenu(false)}
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    {userProfile?.username || shortenAddress(account)}
                   </button>
-                  <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-dark-200 ring-1 ring-dark-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  
+                  <div 
+                    className={`absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-dark-200 ring-1 ring-dark-100 transition-all duration-200 ${
+                      showUserMenu ? 'opacity-100 visible' : 'opacity-0 invisible'
+                    }`}
+                    onMouseEnter={() => setShowUserMenu(true)}
+                    onMouseLeave={() => setShowUserMenu(false)}
+                  >
                     <div className="py-1">
+                      <Link
+                        to="/profile"
+                        className="flex items-center px-4 py-2 text-sm text-white hover:bg-dark-100"
+                      >
+                        <User className="w-4 h-4 mr-2" />
+                        My Profile
+                      </Link>
+                      <Link
+                        to="/my-nfts"
+                        className="flex items-center px-4 py-2 text-sm text-white hover:bg-dark-100"
+                      >
+                        <TrendingUp className="w-4 h-4 mr-2" />
+                        My Collection
+                      </Link>
+                      <div className="border-t border-dark-100 my-1"></div>
                       <button
                         onClick={disconnectWallet}
-                        className="block w-full text-left px-4 py-2 text-sm text-white hover:bg-dark-100"
+                        className="flex items-center w-full text-left px-4 py-2 text-sm text-white hover:bg-dark-100"
                       >
+                        <Wallet className="w-4 h-4 mr-2" />
                         Disconnect Wallet
                       </button>
                     </div>
@@ -167,8 +194,7 @@ const Header: React.FC = () => {
                 </button>
               )}
             </div>
-          </div>
-        </div>
+          </div>        </div>
       )}
     </header>
   );

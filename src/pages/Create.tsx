@@ -2,22 +2,36 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWeb3 } from '../context/Web3Context';
 import { useNFT } from '../context/NFTContext';
-import { Upload, Image, Loader } from 'lucide-react';
+import { Upload, Image, Loader, X } from 'lucide-react';
+import { NFTCategory } from '../types';
 import toast from 'react-hot-toast';
 
 const Create: React.FC = () => {
   const { account, connectWallet } = useWeb3();
   const { createNFT, isLoading } = useNFT();
   const navigate = useNavigate();
-  
-  const [name, setName] = useState('');
+    const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
+  const [categories, setCategories] = useState<NFTCategory[]>([]);
   const [wantToList, setWantToList] = useState(true); // New state for listing checkbox
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  
+  const [preview, setPreview] = useState<string | null>(null);  
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Available NFT categories
+  const availableCategories: NFTCategory[] = [
+    'Art', 'Gaming', 'Music', 'Photography', 'Collectibles', 'Sports', 'Utility', 'Other'
+  ];
+
+  // Handle category selection
+  const toggleCategory = (category: NFTCategory) => {
+    setCategories(prev => 
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -45,9 +59,13 @@ const Create: React.FC = () => {
       toast.error('Please connect your wallet first');
       return;
     }
-    
-    if (!name || !description || !file) {
+      if (!name || !description || !file) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (categories.length === 0) {
+      toast.error('Please select at least one category');
       return;
     }
 
@@ -55,10 +73,9 @@ const Create: React.FC = () => {
       toast.error('Please enter a price for listing');
       return;
     }
-    
-    try {
+      try {
       // Pass price only if user wants to list
-      const success = await createNFT(name, description, wantToList ? price : '', file);
+      const success = await createNFT(name, description, wantToList ? price : '', categories, file);
       
       if (success) {
         toast.success('NFT created successfully!');
@@ -117,8 +134,7 @@ const Create: React.FC = () => {
                   required
                 />
               </div>
-              
-              <div className="mb-6">
+                <div className="mb-6">
                 <label htmlFor="description" className="block text-sm font-medium mb-2">
                   Description *
                 </label>
@@ -131,6 +147,36 @@ const Create: React.FC = () => {
                   onChange={(e) => setDescription(e.target.value)}
                   required
                 ></textarea>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-2">
+                  Categories * (Select one or more)
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {availableCategories.map((category) => (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => toggleCategory(category)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 border ${
+                        categories.includes(category)
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white/10 text-gray-300 border-gray-600 hover:bg-white/20 hover:border-gray-500'
+                      }`}
+                    >
+                      {category}
+                      {categories.includes(category) && (
+                        <X size={14} className="inline ml-1" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+                {categories.length > 0 && (
+                  <p className="text-sm text-gray-400 mt-2">
+                    Selected: {categories.join(', ')}
+                  </p>
+                )}
               </div>
 
               <div className="mb-6">

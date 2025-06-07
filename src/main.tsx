@@ -13,6 +13,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { Web3Provider } from './context/Web3Context';
 import { NFTProvider } from './context/NFTContext';
+import { UserProvider } from './context/UserContext';
 import { Toaster } from 'react-hot-toast';
 import './index.css';
 
@@ -21,8 +22,10 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <Web3Provider>
         <NFTProvider>
-          <App />
-          <Toaster position="bottom-right" />
+          <UserProvider>
+            <App />
+            <Toaster position="bottom-right" />
+          </UserProvider>
         </NFTProvider>
       </Web3Provider>
     </BrowserRouter>

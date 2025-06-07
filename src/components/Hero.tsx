@@ -20,7 +20,7 @@ const Hero: React.FC = () => {
               <br />
               Extraordinary NFTs
             </h1>            <p className="text-lg text-gray-300 mb-8 max-w-xl">
-              Where imagination becomes immortal. A creator-first marketplace for visionary digital artists transforming the unreal into valued legacies.
+              The underground hub for rare and exclusive digital assets. Trade, collect, and discover the finest NFTs in the shadow marketplace.
             </p>
             
             <div className="flex flex-wrap gap-4">

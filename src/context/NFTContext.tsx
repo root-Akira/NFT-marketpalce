@@ -4,7 +4,7 @@ import { useWeb3 } from './Web3Context';
 import { NFT_CONTRACT_ADDRESS, MARKETPLACE_CONTRACT_ADDRESS } from '../config/contracts';
 import NFT_ABI from '../contracts/NFT_ABI';
 import MARKETPLACE_ABI from '../contracts/MARKETPLACE_ABI';
-import { NFTItem, MarketItem } from '../types';
+import { NFTItem, MarketItem, NFTCategory } from '../types';
 import { uploadToIPFS } from '../services/ipfsService';
 import toast from 'react-hot-toast';
 
@@ -13,7 +13,7 @@ interface NFTContextType {
   myNfts: NFTItem[];
   myListedNfts: MarketItem[];
   isLoading: boolean;
-  createNFT: (name: string, description: string, price: string, file: File) => Promise<boolean>;
+  createNFT: (name: string, description: string, price: string, categories: NFTCategory[], file: File) => Promise<boolean>;
   fetchNFTs: () => Promise<void>;
   fetchMyNFTs: () => Promise<void>;
   fetchMyListedNFTs: () => Promise<void>;
@@ -67,9 +67,8 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
     if (!signer) throw new Error('Signer not available');
     return new ethers.Contract(MARKETPLACE_CONTRACT_ADDRESS, MARKETPLACE_ABI, signer);
   };
-
   // Create and list a new NFT
-  const createNFT = async (name: string, description: string, price: string, file: File): Promise<boolean> => {
+  const createNFT = async (name: string, description: string, price: string, categories: NFTCategory[], file: File): Promise<boolean> => {
     if (!account || !signer) {
       toast.error('Please connect your wallet first');
       return false;
@@ -87,13 +86,12 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
       if (!imageUrl) {
         toast.error('Failed to upload image to IPFS');
         return false;
-      }
-
-      // Create metadata
+      }      // Create metadata
       const data = {
         name,
         description,
         image: imageUrl,
+        categories: categories, // Store multiple categories
         attributes: [] // OpenSea compatible attributes
       };
 
@@ -265,9 +263,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
               let currentOwner = item.owner;
               if (currentOwner === MARKETPLACE_CONTRACT_ADDRESS) {
                 currentOwner = item.seller; // If owned by marketplace, seller is the actual owner
-              }
-
-              return {
+              }              return {
                 itemId: item.itemId.toNumber(),
                 tokenId: tokenId,
                 seller: item.seller,
@@ -277,6 +273,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
                 image: meta.image,
                 name: meta.name,
                 description: meta.description,
+                categories: meta.categories || [], // Extract categories from metadata
                 sold: item.sold,
                 // Generate a realistic varied listing time based on itemId
                 // This creates a distribution of listing times from very recent to a month ago
@@ -417,13 +414,13 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
                   description: 'Metadata unavailable',
                   image: 'https://via.placeholder.com/400x400?text=NFT'
                 };
-              }
-                items.push({
+              }              items.push({
                 tokenId: tokenId,
                 owner: account,
                 image: meta.image,
                 name: meta.name,
                 description: meta.description,
+                categories: meta.categories || [], // Extract categories from metadata
                 isListed: listedTokenIds.has(tokenId)
               });
             } catch (error) {
@@ -535,8 +532,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
                 if (currentOwner === MARKETPLACE_CONTRACT_ADDRESS) {
                   currentOwner = item.seller; // If owned by marketplace, seller is the actual owner
                 }
-                
-                const processedItem = {
+                  const processedItem = {
                   itemId: item.itemId.toNumber(),
                   tokenId: tokenId,
                   seller: item.seller,
@@ -546,6 +542,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
                   image: meta.image,
                   name: meta.name,
                   description: meta.description,
+                  categories: meta.categories || [], // Extract categories from metadata
                   sold: item.sold,
                   // Generate a realistic varied listing time based on itemId
                   // This creates a distribution of listing times from very recent to a month ago

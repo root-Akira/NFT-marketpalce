@@ -5,6 +5,7 @@ import Create from './pages/Create';
 import MyNFTs from './pages/MyNFTs';
 import MyListings from './pages/MyListings';
 import NFTDetails from './pages/NFTDetails';
+import UserProfile from './pages/UserProfile';
 import { useEffect } from 'react';
 import { useWeb3 } from './context/Web3Context';
 
@@ -23,13 +24,14 @@ function App() {
   }, [connectWallet]);
 
   return (
-    <Layout>
-      <Routes>
+    <Layout>      <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/create" element={<Create />} />
         <Route path="/my-nfts" element={<MyNFTs />} />
         <Route path="/my-listings" element={<MyListings />} />
         <Route path="/nft/:id" element={<NFTDetails />} />
+        <Route path="/profile/:address" element={<UserProfile />} />
+        <Route path="/profile" element={<UserProfile />} />
       </Routes>
     </Layout>
   );

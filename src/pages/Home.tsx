@@ -3,8 +3,10 @@ import { useNFT } from '../context/NFTContext';
 import { useWeb3 } from '../context/Web3Context';
 import NFTCard from '../components/NFTCard';
 import Hero from '../components/Hero';
-import { Search, Loader, Filter, X, DollarSign } from 'lucide-react';
-import { MarketItem } from '../types';
+import { Search, Loader, Filter, X, DollarSign, ArrowUpDown, TrendingUp, Clock, Tag, Grid } from 'lucide-react';
+import { MarketItem, NFTCategory } from '../types';
+
+type SortOption = 'newest' | 'oldest' | 'price-low' | 'price-high' | 'name-az' | 'name-za';
 
 const Home: React.FC = () => {
   const { nfts, isLoading, buyNFT } = useNFT();
@@ -12,18 +14,61 @@ const Home: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<NFTCategory | 'All'>('All');
   const [showFilters, setShowFilters] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [filteredNfts, setFilteredNfts] = useState(nfts);
 
-  useEffect(() => {
-    let filtered = nfts;
+  const categories: (NFTCategory | 'All')[] = [
+    'All', 'Art', 'Gaming', 'Music', 'Photography', 'Collectibles', 'Sports', 'Utility', 'Other'
+  ];
 
-    // Apply search filter
+  const sortOptions = [
+    { value: 'newest', label: 'Newest First', icon: Clock },
+    { value: 'oldest', label: 'Oldest First', icon: Clock },
+    { value: 'price-low', label: 'Price: Low to High', icon: TrendingUp },
+    { value: 'price-high', label: 'Price: High to Low', icon: TrendingUp },
+    { value: 'name-az', label: 'Name: A-Z', icon: Tag },
+    { value: 'name-za', label: 'Name: Z-A', icon: Tag },
+  ];
+
+  const sortNFTs = (nfts: MarketItem[], sortOption: SortOption): MarketItem[] => {
+    const sorted = [...nfts];
+    
+    switch (sortOption) {
+      case 'newest':
+        return sorted.sort((a, b) => (b.listingTime || 0) - (a.listingTime || 0));
+      case 'oldest':
+        return sorted.sort((a, b) => (a.listingTime || 0) - (b.listingTime || 0));
+      case 'price-low':
+        return sorted.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+      case 'price-high':
+        return sorted.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+      case 'name-az':
+        return sorted.sort((a, b) => a.name.localeCompare(b.name));
+      case 'name-za':
+        return sorted.sort((a, b) => b.name.localeCompare(a.name));
+      default:
+        return sorted;
+    }
+  };
+  useEffect(() => {
+    let filtered = nfts;    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(
         (nft) =>
           nft.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          nft.description.toLowerCase().includes(searchTerm.toLowerCase())
+          nft.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (nft.creator && nft.creator.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          nft.seller.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (nft.categories && nft.categories.some(cat => 
+            cat.toLowerCase().includes(searchTerm.toLowerCase())
+          ))
+      );
+    }// Apply category filter
+    if (selectedCategory !== 'All') {
+      filtered = filtered.filter((nft) => 
+        nft.categories && nft.categories.includes(selectedCategory as NFTCategory)
       );
     }
 
@@ -38,17 +83,21 @@ const Home: React.FC = () => {
       });
     }
 
-    setFilteredNfts(filtered);
-  }, [searchTerm, minPrice, maxPrice, nfts]);
+    // Apply sorting
+    filtered = sortNFTs(filtered, sortBy);
 
+    setFilteredNfts(filtered);
+  }, [searchTerm, minPrice, maxPrice, selectedCategory, sortBy, nfts]);
   const clearFilters = () => {
     setSearchTerm('');
     setMinPrice('');
     setMaxPrice('');
+    setSelectedCategory('All');
+    setSortBy('newest');
     setShowFilters(false);
   };
 
-  const hasActiveFilters = searchTerm || minPrice || maxPrice;
+  const hasActiveFilters = searchTerm || minPrice || maxPrice || selectedCategory !== 'All' || sortBy !== 'newest';
 
   const handleBuyNFT = async (nft: MarketItem) => {
     await buyNFT(nft);
@@ -63,8 +112,7 @@ const Home: React.FC = () => {
             <h2 className="text-2xl md:text-3xl font-bold">
               Explore NFTs
             </h2>
-            
-            <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
               {/* Search Input */}
               <div className="relative">
                 <input
@@ -77,19 +125,60 @@ const Home: React.FC = () => {
                 <Search className="absolute right-3 top-2.5 w-5 h-5 text-gray-400" />
               </div>
 
+              {/* Sort Dropdown */}
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="input pr-10 appearance-none cursor-pointer"
+                >
+                  {sortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <ArrowUpDown className="absolute right-3 top-2.5 w-5 h-5 text-gray-400 pointer-events-none" />
+              </div>
+
               {/* Filter Toggle Button */}
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`btn ${hasActiveFilters ? 'btn-primary' : 'btn-secondary'} flex items-center gap-2`}
               >
                 <Filter className="w-4 h-4" />
-                Filters
-                {hasActiveFilters && (
+                Filters                {hasActiveFilters && (
                   <span className="bg-white text-primary-500 text-xs px-1.5 py-0.5 rounded-full">
-                    {[searchTerm, minPrice, maxPrice].filter(Boolean).length}
+                    {[searchTerm, minPrice, maxPrice, selectedCategory !== 'All', sortBy !== 'newest'].filter(Boolean).length}
                   </span>
                 )}
               </button>
+            </div>
+          </div>
+
+          {/* Category Filter Bar */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Grid className="w-5 h-5 text-gray-400" />
+              <span className="text-sm font-medium text-gray-300">Categories</span>
+            </div>            <div className="flex flex-wrap gap-2 sm:gap-3">
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-3 sm:px-4 py-2 rounded-full text-sm transition-all duration-200 whitespace-nowrap ${
+                    selectedCategory === category
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-white/10 text-gray-300 hover:bg-white/20 border border-white/20'
+                  }`}
+                >
+                  {category}                  {category !== 'All' && (
+                    <span className="ml-1 sm:ml-2 text-xs opacity-75">
+                      ({nfts.filter(nft => nft.categories && nft.categories.includes(category as NFTCategory)).length})
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -143,9 +232,7 @@ const Home: React.FC = () => {
                     Clear All
                   </button>
                 )}
-              </div>
-
-              {/* Active Filters Summary */}
+              </div>              {/* Active Filters Summary */}
               {hasActiveFilters && (
                 <div className="mt-4 pt-4 border-t border-dark-200">
                   <p className="text-sm text-gray-400 mb-2">Active filters:</p>
@@ -170,6 +257,14 @@ const Home: React.FC = () => {
                       <span className="glass rounded-full px-3 py-1 text-xs flex items-center gap-1">
                         Max: {maxPrice} ETH
                         <button onClick={() => setMaxPrice('')} className="hover:text-red-400">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
+                    {sortBy !== 'newest' && (
+                      <span className="glass rounded-full px-3 py-1 text-xs flex items-center gap-1">
+                        Sort: {sortOptions.find(opt => opt.value === sortBy)?.label}
+                        <button onClick={() => setSortBy('newest')} className="hover:text-red-400">
                           <X className="w-3 h-3" />
                         </button>
                       </span>

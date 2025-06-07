@@ -1,6 +1,6 @@
-# NFT Marketplace
+# BlackMarket
 
-A decentralized NFT marketplace built with React, TypeScript, and Ethereum smart contracts.
+The underground hub for rare and exclusive digital assets. A decentralized NFT marketplace built with React, TypeScript, and Ethereum smart contracts.
 
 ## Features
 
