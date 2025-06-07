@@ -43,11 +43,10 @@ const NFTCard: React.FC<NFTCardProps> = ({ nft, actionButton }) => {
             </Link>
             <p className="text-gray-400 text-sm line-clamp-2 h-10 mb-2">{nft.description}</p>
           </div>
-        </div>
-          <div className="flex items-center justify-between mt-2">
+        </div>        <div className="flex items-center justify-between mt-2">
           <div className="flex items-center text-sm text-gray-400">
             <User className="w-4 h-4 mr-1" />
-            <span className="truncate max-w-[140px]">
+            <span className="truncate max-w-[140px]" title="Seller">
               {nft.seller.substring(0, 6)}...{nft.seller.substring(nft.seller.length - 4)}
             </span>
           </div>
@@ -56,10 +55,30 @@ const NFTCard: React.FC<NFTCardProps> = ({ nft, actionButton }) => {
             <span className="font-medium text-white">{nft.price} ETH</span>
           </div>
         </div>
+        
+        {/* Ownership info */}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {/* Creator info if available */}
+          {nft.creator && (
+            <div className="glass rounded-full px-2 py-1 text-xs text-gray-300 flex items-center">
+              <User className="w-3 h-3 mr-1 text-primary-400" />
+              <span title="Creator">Creator: {nft.creator.substring(0, 4)}...{nft.creator.substring(nft.creator.length - 4)}</span>
+            </div>
+          )}
+          
+          {/* Current owner if different from seller */}
+          {nft.owner && nft.owner !== nft.seller && (
+            <div className="glass rounded-full px-2 py-1 text-xs text-gray-300 flex items-center">
+              <User className="w-3 h-3 mr-1 text-accent-400" />
+              <span title="Owner">Owner: {nft.owner.substring(0, 4)}...{nft.owner.substring(nft.owner.length - 4)}</span>
+            </div>
+          )}
+          
           {/* Listing time */}
-        <div className="mt-2 text-xs text-gray-400 flex items-center">
-          <Clock className="w-3 h-3 mr-1" />
-          <span>Listed {getRelativeTime(nft.listingTime)}</span>
+          <div className="glass rounded-full px-2 py-1 text-xs text-gray-300 flex items-center">
+            <Clock className="w-3 h-3 mr-1" />
+            <span>Listed {getRelativeTime(nft.listingTime)}</span>
+          </div>
         </div>
 
         {/* Action Buttons */}

@@ -243,9 +243,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
               itemId: item.itemId.toNumber(),
               seller: item.seller,
               sold: item.sold
-            });
-
-            let tokenUri;
+            });            let tokenUri;
             try {
               tokenUri = await nftContract.tokenURI(tokenId);
               console.log('Token URI for', tokenId, ':', tokenUri);
@@ -253,11 +251,28 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
               const response = await fetch(tokenUri);
               if (!response.ok) throw new Error('Failed to fetch metadata');
               const meta = await response.json();
-              console.log('Metadata for', tokenId, ':', meta);              return {
+              console.log('Metadata for', tokenId, ':', meta);
+              
+              // Get transfer events to find the creator (first owner)
+              const filter = nftContract.filters.Transfer(null, null, tokenId);
+              const events = await nftContract.queryFilter(filter);
+              
+              // The first Transfer event is the minting event (from zero address to creator)
+              const mintEvent = events[0];
+              const creator = mintEvent.args?.to;
+              
+              // Current owner is either the marketplace contract (if listed) or the actual owner
+              let currentOwner = item.owner;
+              if (currentOwner === MARKETPLACE_CONTRACT_ADDRESS) {
+                currentOwner = item.seller; // If owned by marketplace, seller is the actual owner
+              }
+
+              return {
                 itemId: item.itemId.toNumber(),
                 tokenId: tokenId,
                 seller: item.seller,
-                owner: item.owner,
+                owner: currentOwner,
+                creator: creator,
                 price: ethers.utils.formatEther(item.price),
                 image: meta.image,
                 name: meta.name,
@@ -403,8 +418,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
                   image: 'https://via.placeholder.com/400x400?text=NFT'
                 };
               }
-              
-              items.push({
+                items.push({
                 tokenId: tokenId,
                 owner: account,
                 image: meta.image,
@@ -494,8 +508,7 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
                 tokenUri = await nftContract.tokenURI(tokenId, { gasLimit: 100000 });
                 console.log('Token URI:', tokenUri);
                 
-                let meta;
-                try {
+                let meta;                try {
                   const response = await fetch(tokenUri);
                   if (!response.ok) throw new Error('Failed to fetch metadata');
                   meta = await response.json();
@@ -507,11 +520,28 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
                     description: 'Metadata unavailable',
                     image: 'https://via.placeholder.com/400x400?text=NFT'
                   };
-                }                const processedItem = {
+                }
+                
+                // Get transfer events to find the creator (first owner)
+                const filter = nftContract.filters.Transfer(null, null, tokenId);
+                const events = await nftContract.queryFilter(filter);
+                
+                // The first Transfer event is the minting event (from zero address to creator)
+                const mintEvent = events[0];
+                const creator = mintEvent.args?.to;
+                
+                // Current owner is either the marketplace contract (if listed) or the actual owner
+                let currentOwner = item.owner;
+                if (currentOwner === MARKETPLACE_CONTRACT_ADDRESS) {
+                  currentOwner = item.seller; // If owned by marketplace, seller is the actual owner
+                }
+                
+                const processedItem = {
                   itemId: item.itemId.toNumber(),
                   tokenId: tokenId,
                   seller: item.seller,
-                  owner: item.owner,
+                  owner: currentOwner,
+                  creator: creator,
                   price: ethers.utils.formatEther(item.price),
                   image: meta.image,
                   name: meta.name,
@@ -586,7 +616,6 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
       setIsLoading(false);
     }
   };
-
   // Buy an NFT
   const buyNFT = async (nft: MarketItem): Promise<boolean> => {
     if (!account || !signer) {
@@ -606,14 +635,20 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
           value: price,
           gasLimit: 500000 // Higher gas limit for purchase transaction
         }
+      );        await tx.wait();
+      
+      // Get previous owner for notification
+      const previousOwner = nft.seller;
+      
+      // Show detailed success message
+      toast.success(
+        `NFT "${nft.name}" purchased successfully! Ownership transferred from ${previousOwner.substring(0, 6)}...${previousOwner.substring(previousOwner.length - 4)} to you.`
       );
       
-      await tx.wait();
-      toast.success('NFT purchased successfully!');
-      
-      // Refresh NFTs
+      // Refresh NFTs to update ownership information
       await fetchNFTs();
       await fetchMyNFTs();
+      await fetchMyListedNFTs();
       
       return true;
     } catch (error: any) {
@@ -675,6 +710,74 @@ export const NFTProvider: React.FC<NFTProviderProps> = ({ children }) => {
     }
   };
 
+  // Setup event listeners for NFT transfers
+  useEffect(() => {
+    if (!provider || !account) return;
+    
+    const nftContract = getNFTContract();
+    
+    // Listen for Transfer events involving the current user
+    const filterTo = nftContract.filters.Transfer(null, account);
+    const filterFrom = nftContract.filters.Transfer(account, null);
+      const handleTransfer = async (from: string, to: string, tokenId: ethers.BigNumber) => {
+      console.log(`NFT Transfer detected: Token ${tokenId} from ${from} to ${to}`);
+      
+      try {
+        // Get NFT details if possible
+        const nftContract = getNFTContract();
+        let nftName = `#${tokenId.toString()}`;
+        
+        try {
+          const tokenUri = await nftContract.tokenURI(tokenId);
+          const response = await fetch(tokenUri);
+          if (response.ok) {
+            const metadata = await response.json();
+            if (metadata.name) {
+              nftName = metadata.name;
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching NFT metadata during transfer event:', error);
+        }
+        
+        // Refresh NFT data when a transfer happens
+        await fetchNFTs();
+        await fetchMyNFTs();
+        await fetchMyListedNFTs();
+          
+        // Show detailed notification based on the transfer direction
+        if (to.toLowerCase() === account.toLowerCase()) {
+          // Current user received an NFT
+          toast.success(
+            <div>
+              <p>You received NFT <strong>{nftName}</strong>!</p>
+              <p className="text-xs">From: {from.substring(0, 6)}...{from.substring(from.length - 4)}</p>
+            </div>
+          );
+        } else if (from.toLowerCase() === account.toLowerCase()) {
+          // Current user sent an NFT
+          toast(
+            <div>
+              <p>You sent NFT <strong>{nftName}</strong></p>
+              <p className="text-xs">To: {to.substring(0, 6)}...{to.substring(to.length - 4)}</p>
+            </div>
+          );
+        }
+      } catch (error) {
+        console.error('Error handling transfer event:', error);
+      }
+    };
+    
+    // Add event listeners
+    nftContract.on(filterTo, handleTransfer);
+    nftContract.on(filterFrom, handleTransfer);
+    
+    // Cleanup function
+    return () => {
+      nftContract.removeListener(filterTo, handleTransfer);
+      nftContract.removeListener(filterFrom, handleTransfer);
+    };
+  }, [account, provider]);
   // Fetch NFTs when account changes
   useEffect(() => {
     if (account && provider) {

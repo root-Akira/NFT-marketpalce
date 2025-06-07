@@ -13,4 +13,5 @@ export interface MarketItem extends NFTItem {
   price: string;
   sold: boolean;
   listingTime?: number; // Unix timestamp in milliseconds
+  creator?: string; // Original creator/minter of the NFT
 }
