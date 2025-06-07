@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useWeb3 } from '../../context/Web3Context';
 import { useUser } from '../../context/UserContext';
-import { Wallet, Menu, X, Vault, User, TrendingUp } from 'lucide-react';
+import { Wallet, Menu, X, User, TrendingUp } from 'lucide-react';
 
 const Header: React.FC = () => {
   const { account, balance, connectWallet, disconnectWallet, isConnecting } = useWeb3();
@@ -43,9 +43,30 @@ const Header: React.FC = () => {
     <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-dark-300 shadow-md' : 'bg-transparent'}`}>
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">          {/* Logo */}          <Link to="/" className="flex items-center">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#4C1D95]">
-              <Vault className="w-5 h-5 text-white" />
-            </div>            <span className="ml-2 text-xl font-bold bg-gradient-to-r from-primary-400 to-secondary-400 text-transparent bg-clip-text">
+            <div className="w-8 h-8 rounded-lg overflow-hidden">
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Background with gradient */}
+                <rect width="32" height="32" rx="6" fill="url(#gradient)"/>
+                
+                {/* Diamond/gem shape for rare assets */}
+                <path d="M16 6L22 12L16 24L10 12L16 6Z" fill="white" opacity="0.9"/>
+                <path d="M16 6L22 12H10L16 6Z" fill="white" opacity="0.7"/>
+                <path d="M16 12L22 12L16 24V12Z" fill="white" opacity="0.5"/>
+                <path d="M16 12L10 12L16 24V12Z" fill="white" opacity="0.6"/>
+                
+                {/* Inner highlight */}
+                <path d="M16 8L20 12H12L16 8Z" fill="white" opacity="0.3"/>
+                
+                <defs>
+                  <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style={{stopColor: "#000000", stopOpacity: 1}} />
+                    <stop offset="50%" style={{stopColor: "#1a1a1a", stopOpacity: 1}} />
+                    <stop offset="100%" style={{stopColor: "#000000", stopOpacity: 1}} />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            <span className="ml-2 text-xl font-bold bg-gradient-to-r from-primary-400 to-secondary-400 text-transparent bg-clip-text">
               BlackMarket
             </span>
           </Link>
