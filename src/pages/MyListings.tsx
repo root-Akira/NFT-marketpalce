@@ -2,10 +2,10 @@ import React from 'react';
 import { useNFT } from '../context/NFTContext';
 import { useWeb3 } from '../context/Web3Context';
 import { Link } from 'react-router-dom';
-import { Image, Loader, PlusCircle, XCircle } from 'lucide-react';
+import { Image, Loader, PlusCircle } from 'lucide-react';
 
 const MyListings: React.FC = () => {
-  const { myListedNfts, isLoading, cancelListing } = useNFT();
+  const { myListedNfts, isLoading } = useNFT();
   const { account, connectWallet } = useWeb3();
 
   if (!account) {
@@ -78,19 +78,9 @@ const MyListings: React.FC = () => {
                   )}
                 </div>
               </div>
-              
-              <div className="p-4">
+                <div className="p-4">
                 <h3 className="text-lg font-semibold mb-1">{nft.name}</h3>
                 <p className="text-gray-400 text-sm line-clamp-2 h-10 mb-2">{nft.description}</p>
-                
-                {!nft.sold && (
-                  <button
-                    className="btn btn-secondary w-full mt-4 flex items-center justify-center"
-                    onClick={() => cancelListing(nft.itemId)}
-                  >
-                    <XCircle className="w-4 h-4 mr-2" /> Cancel Listing
-                  </button>
-                )}
               </div>
             </div>
           ))}

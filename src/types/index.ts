@@ -12,4 +12,5 @@ export interface MarketItem extends NFTItem {
   seller: string;
   price: string;
   sold: boolean;
+  listingTime?: number; // Unix timestamp in milliseconds
 }

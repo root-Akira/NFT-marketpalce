@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useNFT } from '../context/NFTContext';
 import { useWeb3 } from '../context/Web3Context';
 import { User, Tag, Clock, ChevronLeft, Loader, ExternalLink } from 'lucide-react';
+import { getRelativeTime } from '../utils/timeUtils';
 
 const NFTDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -74,7 +75,7 @@ const NFTDetails: React.FC = () => {
             
             <div className="glass rounded-full px-3 py-1 flex items-center">
               <Clock className="w-4 h-4 mr-2 text-gray-400" />
-              <span className="text-gray-300">Listed recently</span>
+              <span className="text-gray-300">Listed {getRelativeTime(nft.listingTime)}</span>
             </div>
           </div>
           
@@ -106,8 +107,7 @@ const NFTDetails: React.FC = () => {
             </div>
           </div>
           
-          <div className="border-t border-dark-200 pt-6 mt-6">
-            {!account ? (
+          <div className="border-t border-dark-200 pt-6 mt-6">            {!account ? (
               <button
                 onClick={connectWallet}
                 className="btn btn-primary w-full py-3 text-lg"
@@ -117,9 +117,6 @@ const NFTDetails: React.FC = () => {
             ) : account.toLowerCase() === nft.seller.toLowerCase() ? (
               <div className="glass rounded-lg p-4 text-center">
                 <p className="text-gray-300 mb-2">This is your NFT listing</p>
-                <Link to="/my-listings" className="btn btn-secondary">
-                  Manage Your Listings
-                </Link>
               </div>
             ) : (
               <button

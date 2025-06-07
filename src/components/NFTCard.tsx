@@ -1,26 +1,18 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { MarketItem } from '../types';
-import { User, TagIcon, XCircle } from 'lucide-react';
+import { User, TagIcon, Clock } from 'lucide-react';
 import { useWeb3 } from '../context/Web3Context';
-import { useNFT } from '../context/NFTContext';
+import { getRelativeTime } from '../utils/timeUtils';
 
 interface NFTCardProps {
   nft: MarketItem;
   actionButton?: React.ReactNode;
-  showUnlist?: boolean;
 }
 
-const NFTCard: React.FC<NFTCardProps> = ({ nft, actionButton, showUnlist = false }) => {
+const NFTCard: React.FC<NFTCardProps> = ({ nft, actionButton }) => {
   const { account } = useWeb3();
-  const { cancelListing, isLoading } = useNFT();
   const isOwner = account && nft.seller.toLowerCase() === account.toLowerCase();
-
-  const handleUnlist = async () => {
-    if (window.confirm('Are you sure you want to unlist this NFT?')) {
-      await cancelListing(nft.itemId);
-    }
-  };
 
   return (
     <div className="card group">
@@ -52,8 +44,7 @@ const NFTCard: React.FC<NFTCardProps> = ({ nft, actionButton, showUnlist = false
             <p className="text-gray-400 text-sm line-clamp-2 h-10 mb-2">{nft.description}</p>
           </div>
         </div>
-        
-        <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center justify-between mt-2">
           <div className="flex items-center text-sm text-gray-400">
             <User className="w-4 h-4 mr-1" />
             <span className="truncate max-w-[140px]">
@@ -65,19 +56,14 @@ const NFTCard: React.FC<NFTCardProps> = ({ nft, actionButton, showUnlist = false
             <span className="font-medium text-white">{nft.price} ETH</span>
           </div>
         </div>
+          {/* Listing time */}
+        <div className="mt-2 text-xs text-gray-400 flex items-center">
+          <Clock className="w-3 h-3 mr-1" />
+          <span>Listed {getRelativeTime(nft.listingTime)}</span>
+        </div>
 
         {/* Action Buttons */}
         <div className="mt-4 space-y-2">
-          {showUnlist && isOwner && (
-            <button
-              onClick={handleUnlist}
-              disabled={isLoading}
-              className="btn btn-secondary w-full flex items-center justify-center"
-            >
-              <XCircle className="w-4 h-4 mr-2" />
-              Unlist NFT
-            </button>
-          )}
           {actionButton}
         </div>
       </div>
